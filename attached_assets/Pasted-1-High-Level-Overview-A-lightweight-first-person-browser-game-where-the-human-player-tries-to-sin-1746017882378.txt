@@ -1,0 +1,112 @@
+1 . High-Level Overview
+A lightweight, first-person browser game where the human player tries to sink as many baskets as possible while two AI bots (one on each side of the court) attempt the same. At any moment the player may (A) throw their own basketball or (B) press a key to swap the ball for a toy “plasma gun” that can shoot down opponents’ balls mid-flight. The entire experience is keyboard-only and designed to run at 60 FPS on a mid-range laptop in Chrome/Firefox/Edge.
+
+2 . Technology & Engine Choices
+
+Layer	Tech	Rationale
+Rendering	Three.js (WebGL2)	Mature, tiny bundle when tree-shaken; wide browser support.
+Physics	Cannon-es (lightweight fork of Cannon.js)	Very small, easy to integrate with Three.js; good enough for rigid-body + collider needs.
+Scripting (Python)	Pyodide + PyScript	Lets all gameplay logic, AI and state machines be written in pure Python and compiled to WebAssembly transparently.
+Build	Vite + ESBuild	Ultra-fast hot reload; outputs one minified JS + one WASM file.
+Assets	glTF 2.0 models, compressed with Draco.	
+No back-end needed	Everything is client-side; deploy as static files (GitHub Pages, Netlify, S3 + CloudFront).	
+Why this combo?
+• Keeps the heavy lifting (rendering) in JavaScript for maximal GPU efficiency.
+• Allows Python-centric devs to stay productive in PyScript for game rules/AI.
+• All tooling is “classic web” (HTML + CSS + JS/WASM) and requires no plug-ins.
+
+3 . Architecture
+scss
+Copy
+Edit
+              ┌──────────────────────────────┐
+              │         Main Thread          │
+              ├─────────────┬─────────────┬──┤
+              │             │             │
+     Input →  │  Python VM  │  Physics    │  Renderer (Three.js)
+ (Keyboard)   │ (Pyodide)   │ (Cannon-es) │
+              └─────┬───────┴───────┬─────┘
+                    │ GameState     │
+                    └─────┬─────────┘
+                   UI Layer (HTML/CSS + Canvas2D overlay)
+Game Loop (requestAnimationFrame):
+
+Poll keyboard → dispatch to Python VM.
+
+Update GameState & AI FSMs (Python).
+
+Step physics world (Cannon-es).
+
+Sync transforms to Three.js meshes.
+
+Render frame.
+
+ECS-lite: Entities are plain Python objects stored in lists (player, bots, balls, bullets, hoop). Components: Transform, RigidBody, Shooter, Scorer, AIController.
+
+4 . Gameplay Mechanics & Physics
+
+Item	Specification
+Court	20 m × 12 m rectangle. Wooden floor plane with invisible boundary colliders (Cannon Plane bodies).
+Hoop	Positioned 3 m above ground, 0.45 m radius. Net is cosmetic – scoring detected by sphere-in-cylinder test.
+Gravity	-9.81 m/s², applied every physics tick (fixed δt = 1/120 s).
+Basketball	Mass 0.6 kg; Sphere collider radius 0.12 m; restitution 0.75; linear damping 0.05.
+Ball Throw	Player holds Space to charge; release = initial velocity v = k·t_charge (cap 12 m/s) in forward camera direction with vertical bias of +8°.
+Gun Mode	Toggle with G (1 frame cooldown). While active: left mouse not used; press Space to fire a small sphere (mass 0.05 kg, speed 35 m/s, lifetime 2 s). Bullet→ball collision uses Cannon contact callback; destroys ball and spawns particle burst.
+Bot AI	Finite-state machine (Idle → Aim → Throw → Cooldown). • Picks random spot within 2 m semicircle, ray-casts to hoop to compute required ballistic angle, adds ±3° inaccuracy. • Cooldown = 2–5 s random.
+Scoring	Ball collider must entirely cross hoop cylinder plane; trigger increments score and despawns ball.
+Winning Condition	90-second timer. Highest score wins (simple tie = “Draw”).
+5 . Controls (Keyboard-Only)
+
+Key	Action
+W / S	Move forward / backward (4 m/s).
+A / D	Strafe left / right.
+← / →	Turn camera left / right (5 ° per press; hold for continuous).
+Space	Throw ball or fire gun (contextual).
+G	Toggle Ball ↔ Gun.
+R	Quick reset after match ends.
+Esc	Pause / settings menu.
+Mouse is deliberately unused to meet requirement.
+
+6 . UI / UX
+
+Element	Placement	Notes
+Cross-hair	Center; subtle 2-pixel dot.	
+Scoreboard	Top-center: “You - Bot L - Bot R”. Updates live.	
+Timer	Top-right (MM:SS). Blinks red in last 10 s.	
+Mode Icon	Bottom-right: shows 🏀 or 🔫 (gun).	
+Controls Hint	Fade-in overlay first 5 s (press G to switch, Space to act).	
+Pause Menu	CSS-blurred background; options: Resume, Sensitivity (turn speed), Volume, Restart, Quit.	
+Visual style: low-poly, bright colors, flat shaded; keeps GPU load minimal. Use Tailwind for quick styling of HTML overlays.
+
+7 . Asset & Performance Targets
+Total download size: ≤ 7 MB (gzipped, inc. WASM).
+
+Draw calls per frame: ≤ 150.
+
+Physics bodies: Max 20 simultaneous (3 players, ≤ 10 balls, bullets).
+
+GPU budget: 8 ms; CPU + physics: 6 ms @ 60 FPS on Intel U-series i5.
+
+Accessibility: Color-blind-safe palette; all instructions textual.
+
+Audio: One background loop (48 k Ogg), two SFX (throw, hit) ≤ 300 KB total.
+
+8 . Development Road-Map
+
+Sprint	Deliverable
+0 (1 day)	Repo scaffolding (Vite, PyScript, Three.js starter).
+1 (1 week)	Player controller, camera, court, hoop.
+2 (1 week)	Ball physics, scoring logic, UI overlays.
+3 (1 week)	Bot AI FSM + spawn manager.
+4 (3 days)	Gun mode, bullet-to-ball collision.
+5 (3 days)	Polish: sounds, particle bursts, responsive UI, mobile fallback lockout.
+6 (2 days)	Bundle optimization, cross-browser QA, public deploy.
+9 . Extensibility Hooks
+Multiplayer – WebRTC peer-to-peer with shared authoritative clock.
+
+Skins / Themes – Swap glTF texture atlases; config via JSON.
+
+Difficulty Levels – Parametrize bot inaccuracy and cooldown.
+
+Analytics – Simple event logging to Plausible via fetch in async worker.
+
