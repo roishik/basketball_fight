@@ -1,5 +1,5 @@
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useBasketballGame } from "../lib/stores/useBasketballGame";
 import BasketballCourt from "./BasketballCourt";
 import Player from "./Player";
@@ -14,8 +14,14 @@ const Game = () => {
     bullets, 
     gamePhase,
     startGame,
-    resetGame
+    resetGame,
+    isCharging,
+    currentWeapon
   } = useBasketballGame();
+  
+  // Charge strength state for the charge indicator
+  const [chargeStrength, setChargeStrength] = useState(0);
+  const [chargeStartTime, setChargeStartTime] = useState(0);
 
   // Initialize game on mount
   useEffect(() => {
@@ -34,99 +40,149 @@ const Game = () => {
       resetGame();
     };
   }, []);
+  
+  // Update charge strength when charging
+  useEffect(() => {
+    if (isCharging) {
+      setChargeStartTime(Date.now());
+      
+      const interval = setInterval(() => {
+        const elapsed = (Date.now() - chargeStartTime) / 1000;
+        const newStrength = Math.min(elapsed * 4, 12); // Same formula as before
+        setChargeStrength(newStrength);
+      }, 50); // Update frequently for smooth animation
+      
+      return () => clearInterval(interval);
+    } else {
+      setChargeStrength(0);
+    }
+  }, [isCharging, chargeStartTime]);
 
   return (
-    <Canvas
-      shadows
-      camera={{
-        position: [0, 1.6, 0], // Initial camera height at eye level
-        fov: 75,
-        near: 0.1,
-        far: 1000
-      }}
-    >
-      <color attach="background" args={["#87CEEB"]} />
-      
-      {/* Main lighting */}
-      <ambientLight intensity={0.6} />
-      <directionalLight 
-        position={[10, 10, 5]} 
-        intensity={1} 
-        castShadow 
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-      />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {/* Throw strength charge indicator (outside of Canvas) */}
+      {isCharging && currentWeapon === 'ball' && (
+        <div 
+          style={{
+            position: 'absolute',
+            bottom: '100px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '200px',
+            height: '20px',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            borderRadius: '10px',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+            zIndex: 1000
+          }}
+        >
+          <div
+            style={{
+              width: `${(chargeStrength / 12) * 100}%`,
+              height: '100%',
+              backgroundColor: 
+                chargeStrength < 4 ? 'rgb(255, 150, 0)' : 
+                chargeStrength < 8 ? 'rgb(0, 255, 0)' : 
+                'rgb(255, 0, 0)',
+              transition: 'width 0.1s linear'
+            }}
+          />
+        </div>
+      )}
 
-      <Suspense fallback={null}>
-        {/* Court environment */}
-        <BasketballCourt />
+      <Canvas
+        shadows
+        camera={{
+          position: [0, 1.6, 0], // Initial camera height at eye level
+          fov: 75,
+          near: 0.1,
+          far: 1000
+        }}
+      >
+        <color attach="background" args={["#87CEEB"]} />
         
-        {/* Hoop */}
-        <Hoop position={[0, 3, -9]} />
-        
-        {/* Player (first-person, so no visible body) */}
-        <Player />
-        
-        {/* Bot players */}
-        <Bot position={[-5, 0, -6]} name="Bot L" />
-        <Bot position={[5, 0, -6]} name="Bot R" />
-        
-        {/* Render all active basketballs */}
-        {basketballs.map((ball) => {
-          // If the ball is exploding, render an explosion effect
-          if (ball.exploding) {
-            const explosionScale = ball.explosionStartTime 
-              ? Math.min(3, ((Date.now() - ball.explosionStartTime) / 1000) * 5) 
-              : 1;
-            
-            return (
-              <group key={ball.id} position={[ball.position.x, ball.position.y, ball.position.z]}>
-                {/* Explosion core */}
-                <mesh scale={explosionScale * 0.3}>
-                  <sphereGeometry args={[0.3, 16, 16]} />
-                  <meshStandardMaterial color="#ff3300" emissive="#ff3300" emissiveIntensity={2} />
-                </mesh>
-                
-                {/* Explosion outer glow */}
-                <mesh scale={explosionScale * 0.8}>
-                  <sphereGeometry args={[0.3, 16, 16]} />
-                  <meshStandardMaterial 
-                    color="#ff9900" 
-                    emissive="#ff9900" 
-                    emissiveIntensity={1.5}
-                    transparent={true}
-                    opacity={1 - (explosionScale / 3)}
-                  />
-                </mesh>
-              </group>
-            );
-          }
+        {/* Main lighting */}
+        <ambientLight intensity={0.6} />
+        <directionalLight 
+          position={[10, 10, 5]} 
+          intensity={1} 
+          castShadow 
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+        />
+
+        <Suspense fallback={null}>
+          {/* Court environment */}
+          <BasketballCourt />
           
-          // Regular basketball
-          return (
+          {/* Hoop */}
+          <Hoop position={[0, 3, -9]} />
+          
+          {/* Player (first-person, so no visible body) */}
+          <Player />
+          
+          {/* Bot players */}
+          <Bot position={[-5, 0, -6]} name="Bot L" />
+          <Bot position={[5, 0, -6]} name="Bot R" />
+          
+          {/* Render all active basketballs */}
+          {basketballs.map((ball) => {
+            // If the ball is exploding, render an explosion effect
+            if (ball.exploding) {
+              const explosionScale = ball.explosionStartTime 
+                ? Math.min(3, ((Date.now() - ball.explosionStartTime) / 1000) * 5) 
+                : 1;
+              
+              return (
+                <group key={ball.id} position={[ball.position.x, ball.position.y, ball.position.z]}>
+                  {/* Explosion core */}
+                  <mesh scale={explosionScale * 0.3}>
+                    <sphereGeometry args={[0.3, 16, 16]} />
+                    <meshStandardMaterial color="#ff3300" emissive="#ff3300" emissiveIntensity={2} />
+                  </mesh>
+                  
+                  {/* Explosion outer glow */}
+                  <mesh scale={explosionScale * 0.8}>
+                    <sphereGeometry args={[0.3, 16, 16]} />
+                    <meshStandardMaterial 
+                      color="#ff9900" 
+                      emissive="#ff9900" 
+                      emissiveIntensity={1.5}
+                      transparent={true}
+                      opacity={1 - (explosionScale / 3)}
+                    />
+                  </mesh>
+                </group>
+              );
+            }
+            
+            // Regular basketball
+            return (
+              <mesh
+                key={ball.id}
+                position={[ball.position.x, ball.position.y, ball.position.z]}
+                castShadow
+              >
+                <sphereGeometry args={[0.12, 16, 16]} />
+                <meshStandardMaterial color={ball.owner === 'player' ? "#ff7700" : "#ffa500"} />
+              </mesh>
+            );
+          })}
+          
+          {/* Render all active bullets */}
+          {bullets.map((bullet) => (
             <mesh
-              key={ball.id}
-              position={[ball.position.x, ball.position.y, ball.position.z]}
-              castShadow
+              key={bullet.id}
+              position={[bullet.position.x, bullet.position.y, bullet.position.z]}
             >
-              <sphereGeometry args={[0.12, 16, 16]} />
-              <meshStandardMaterial color={ball.owner === 'player' ? "#ff7700" : "#ffa500"} />
+              <sphereGeometry args={[0.05, 8, 8]} />
+              <meshStandardMaterial color="#00ffff" emissive="#00ffff" emissiveIntensity={2} />
             </mesh>
-          );
-        })}
-        
-        {/* Render all active bullets */}
-        {bullets.map((bullet) => (
-          <mesh
-            key={bullet.id}
-            position={[bullet.position.x, bullet.position.y, bullet.position.z]}
-          >
-            <sphereGeometry args={[0.05, 8, 8]} />
-            <meshStandardMaterial color="#00ffff" emissive="#00ffff" emissiveIntensity={2} />
-          </mesh>
-        ))}
-      </Suspense>
-    </Canvas>
+          ))}
+        </Suspense>
+      </Canvas>
+    </div>
   );
 };
 

@@ -112,14 +112,14 @@ export const useBasketballGame = create<BasketballGameState>()(
         set({
           gamePhase: "ready",
           playerPosition: { x: 0, y: 1.6, z: 0 },
-          playerRotation: Math.PI,
+          playerRotation: Math.PI, // Facing the hoop (-z direction)
           currentWeapon: "ball",
           isCharging: false,
           basketballs: [],
           bullets: [],
           playerScore: 0,
           botScores: {},
-          remainingTime: 90
+          remainingTime: 300 // 5 minute timer (300 seconds)
         });
       },
       
@@ -382,7 +382,7 @@ export const useBasketballGame = create<BasketballGameState>()(
           bullets: [],
           playerScore: 0,
           botScores: {},
-          remainingTime: 90
+          remainingTime: 300 // 5 minute timer (300 seconds)
         });
         
         // Restart the game

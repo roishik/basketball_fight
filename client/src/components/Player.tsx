@@ -187,14 +187,15 @@ const Player = () => {
     }
     
     // Add vertical look (up/down) using arrow keys for requirement #3
+    // Invert the controls so up arrow looks up and down arrow looks down
     const lookSpeed = 2 * Math.PI / 180; // 2 degrees per press
     if (lookUp) {
-      const newAngle = Math.max(verticalAngle - lookSpeed, -Math.PI / 3); // Limit up look to 60 degrees
+      const newAngle = Math.min(verticalAngle + lookSpeed, Math.PI / 3); // Limit up look to 60 degrees
       setVerticalAngle(newAngle);
       camera.rotation.x = newAngle;
     }
     if (lookDown) {
-      const newAngle = Math.min(verticalAngle + lookSpeed, Math.PI / 3); // Limit down look to 60 degrees
+      const newAngle = Math.max(verticalAngle - lookSpeed, -Math.PI / 3); // Limit down look to 60 degrees
       setVerticalAngle(newAngle);
       camera.rotation.x = newAngle;
     }
@@ -227,35 +228,8 @@ const Player = () => {
         <PlasmaGun />
       )}
       
-      {/* Throw strength charge indicator (requirement #2) */}
-      {isCharging && currentWeapon === 'ball' && (
-        <div 
-          style={{
-            position: 'absolute',
-            bottom: '100px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '200px',
-            height: '20px',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            borderRadius: '10px',
-            overflow: 'hidden',
-            pointerEvents: 'none'
-          }}
-        >
-          <div
-            style={{
-              width: `${(chargeStrength / 12) * 100}%`,
-              height: '100%',
-              backgroundColor: 
-                chargeStrength < 4 ? 'rgb(255, 150, 0)' : 
-                chargeStrength < 8 ? 'rgb(0, 255, 0)' : 
-                'rgb(255, 0, 0)',
-              transition: 'width 0.1s linear'
-            }}
-          />
-        </div>
-      )}
+      {/* We can't use div elements in a THREE.js Canvas, use HUD components instead */}
+      {/* The charge indicator is handled elsewhere in the UI */}
     </>
   );
 };
