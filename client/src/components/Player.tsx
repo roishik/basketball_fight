@@ -118,7 +118,7 @@ const Player = () => {
       // Instead of a fixed bias, we'll use the actual vertical angle plus a small bias
       // This implements requirement #3 for vertical throw angles
       
-      // Throw the ball
+      // Throw the ball with more upward motion
       throwBall({
         position: {
           x: cameraPosition.current.x,
@@ -127,7 +127,7 @@ const Player = () => {
         },
         velocity: {
           x: cameraDirection.current.x * chargeStrength,
-          y: cameraDirection.current.y * chargeStrength,
+          y: cameraDirection.current.y * chargeStrength + 5.0, // Add significant upward bias
           z: cameraDirection.current.z * chargeStrength
         }
       });
